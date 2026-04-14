@@ -1,17 +1,4 @@
 (() => {
-  function normalizePath(pathname) {
-    if (!pathname) return "/";
-    return pathname.endsWith("/") ? pathname : `${pathname}/`;
-  }
-
-  function pagePathVariants(itemPath, basePath) {
-    const clean = itemPath.replace(/^\//, "").replace(/\.md$/i, "");
-    return new Set([
-      normalizePath(`${basePath}${clean}/`),
-      normalizePath(`${basePath}${clean}/index.html`),
-    ]);
-  }
-
   function currentBasePath() {
     const marker = "/collected/";
     const pathname = window.location.pathname;
@@ -37,16 +24,6 @@
       .filter(Boolean);
   }
 
-  function findCurrentPath(items, basePath) {
-    const current = normalizePath(window.location.pathname);
-    for (const item of items) {
-      if (pagePathVariants(item.path, basePath).has(current)) {
-        return item.path;
-      }
-    }
-    return "";
-  }
-
   function createLink(basePath, itemPath) {
     const clean = itemPath.replace(/^\//, "").replace(/\.md$/i, "");
     return `${basePath}${clean}/`;
@@ -57,7 +34,7 @@
     return tokens.every((token) => item.searchText.includes(token));
   }
 
-  function renderList(listEl, items, basePath, currentPath) {
+  function renderList(listEl, items, basePath) {
     listEl.replaceChildren();
 
     for (const item of items) {
@@ -66,9 +43,6 @@
 
       const link = document.createElement("a");
       link.className = "category-filter__link";
-      if (item.path === currentPath) {
-        link.classList.add("category-filter__link--active");
-      }
       link.href = createLink(basePath, item.path);
       link.textContent = `${item.repo} / ${item.title}`;
 
@@ -140,7 +114,6 @@
     sidebarNav.prepend(container);
 
     const basePath = currentBasePath();
-    const currentPath = findCurrentPath(items, basePath);
 
     const refresh = () => {
       const query = input.value.trim();
@@ -150,14 +123,14 @@
       count.textContent = `${matched.length} / ${items.length} files`;
 
       if (matched.length) {
-        renderList(list, matched, basePath, currentPath);
+        renderList(list, matched, basePath);
         return;
       }
 
       renderEmptyState(list, query);
     };
 
-    let expanded = true;
+    let expanded = false;
     setExpandedState(container, toggle, expanded);
 
     toggle.addEventListener("click", () => {
