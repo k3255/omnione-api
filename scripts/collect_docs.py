@@ -1,6 +1,7 @@
 import os
 import time
 import shutil
+import json
 import requests
 from pathlib import Path
 from urllib.parse import quote
@@ -10,6 +11,7 @@ TARGET_DIR = Path("docs/collected")
 DOCS_DIR = Path("docs")
 MKDOCS_CONFIG = Path("mkdocs.yml")
 CATEGORIES_DIR = DOCS_DIR / "categories"
+ASSETS_DATA_DIR = DOCS_DIR / "assets" / "data"
 GITHUB_API = "https://api.github.com"
 
 TOKEN = os.environ.get("DOCS_READ_TOKEN", "")
@@ -225,6 +227,35 @@ def build_category_indexes(categories):
     print(f"[CATEGORY INDEX CREATED] {DOCS_DIR / 'categories.md'}")
 
 
+def build_category_data(categories):
+    ASSETS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {"categories": []}
+
+    for category in sorted(categories):
+        label = _display_name(Path(category))
+        items = []
+        for repo_name, md_file in categories[category]:
+            rel = md_file.relative_to(DOCS_DIR).as_posix()
+            repo_root = md_file.parents[1]
+            title_parts = md_file.relative_to(repo_root).parts[1:]
+            title = _display_name(Path("/".join(title_parts)))
+            items.append({
+                "repo": repo_name,
+                "title": title,
+                "path": rel,
+            })
+
+        payload["categories"].append({
+            "key": category,
+            "label": label,
+            "items": items,
+        })
+
+    output = ASSETS_DATA_DIR / "categories.json"
+    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"[CATEGORY DATA CREATED] {output}")
+
+
 def update_mkdocs_nav(collected_repos, categories):
     lines = [
         "site_name: OmniOne Unified Docs Portal",
@@ -242,6 +273,7 @@ def update_mkdocs_nav(collected_repos, categories):
         "nav:",
         "  - Home: index.md",
         "  - Collected Docs: collected-index.md",
+        "  - Categories: categories.md",
     ]
 
     if collected_repos:
@@ -253,17 +285,16 @@ def update_mkdocs_nav(collected_repos, categories):
                 lines.append(f"      - {repo_name}:")
                 lines.extend(repo_nav)
 
-    if categories:
-        lines.append("  - By Category:")
-        lines.append("      - Overview: categories.md")
-        for category in sorted(categories):
-            label = _display_name(Path(category))
-            lines.append(f"      - {label}: categories/{category}.md")
-
     lines.extend([
         "",
         "plugins:",
         "  - search",
+        "",
+        "extra_javascript:",
+        "  - assets/javascripts/category-filter.js",
+        "",
+        "extra_css:",
+        "  - assets/stylesheets/category-filter.css",
         "",
         "markdown_extensions:",
         "  - toc:",
@@ -365,6 +396,7 @@ def main():
     build_collected_index(collected_repos)
     categories = collect_categories(collected_repos)
     build_category_indexes(categories)
+    build_category_data(categories)
     update_mkdocs_nav(collected_repos, categories)
 
     print("")

@@ -13,9 +13,16 @@ theme:
 nav:
   - Home: index.md
   - Collected Docs: collected-index.md
+  - Categories: categories.md
 
 plugins:
   - search
+
+extra_javascript:
+  - assets/javascripts/category-filter.js
+
+extra_css:
+  - assets/stylesheets/category-filter.css
 
 markdown_extensions:
   - toc:
