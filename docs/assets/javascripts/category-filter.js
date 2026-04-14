@@ -1,6 +1,4 @@
 (() => {
-  const DATA_URL = new URL("../data/doc-index.json", import.meta.url);
-
   function normalizePath(pathname) {
     if (!pathname) return "/";
     return pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -22,6 +20,10 @@
       return pathname.slice(0, idx + 1);
     }
     return pathname.endsWith("/") ? pathname : pathname.replace(/[^/]+$/, "");
+  }
+
+  function dataUrl() {
+    return `${currentBasePath()}assets/data/doc-index.json`;
   }
 
   function normalizeToken(value) {
@@ -91,6 +93,11 @@
     const sidebarNav = document.querySelector(".md-sidebar--primary .md-sidebar__scrollwrap");
     if (!sidebarNav || !items.length) return;
 
+    const existing = sidebarNav.querySelector(".category-filter");
+    if (existing) {
+      existing.remove();
+    }
+
     const container = document.createElement("section");
     container.className = "category-filter";
 
@@ -143,9 +150,9 @@
     refresh();
   }
 
-  document.addEventListener("DOMContentLoaded", async () => {
+  async function bootstrap() {
     try {
-      const response = await fetch(DATA_URL);
+      const response = await fetch(dataUrl());
       if (!response.ok) return;
       const payload = await response.json();
       const items = (payload.items || []).map((item) => ({
@@ -156,5 +163,15 @@
     } catch (_error) {
       // Ignore sidebar enhancement failures and keep the default nav usable.
     }
-  });
+  }
+
+  if (typeof document$ !== "undefined" && typeof document$.subscribe === "function") {
+    document$.subscribe(() => {
+      bootstrap();
+    });
+  } else if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrap, { once: true });
+  } else {
+    bootstrap();
+  }
 })();
