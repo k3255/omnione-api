@@ -1,5 +1,5 @@
 (() => {
-  const DATA_URL = new URL("../data/categories.json", import.meta.url);
+  const DATA_URL = new URL("../data/doc-index.json", import.meta.url);
 
   function normalizePath(pathname) {
     if (!pathname) return "/";
@@ -24,16 +24,25 @@
     return pathname.endsWith("/") ? pathname : pathname.replace(/[^/]+$/, "");
   }
 
-  function findCurrentCategory(categories, basePath) {
+  function normalizeToken(value) {
+    return value.trim().toLowerCase();
+  }
+
+  function tokenizeQuery(value) {
+    return value
+      .split(/\s+/)
+      .map(normalizeToken)
+      .filter(Boolean);
+  }
+
+  function findCurrentPath(items, basePath) {
     const current = normalizePath(window.location.pathname);
-    for (const category of categories) {
-      for (const item of category.items) {
-        if (pagePathVariants(item.path, basePath).has(current)) {
-          return category.key;
-        }
+    for (const item of items) {
+      if (pagePathVariants(item.path, basePath).has(current)) {
+        return item.path;
       }
     }
-    return categories[0]?.key ?? "";
+    return "";
   }
 
   function createLink(basePath, itemPath) {
@@ -41,15 +50,23 @@
     return `${basePath}${clean}/`;
   }
 
-  function renderList(listEl, category, basePath) {
+  function matchesAllTokens(item, tokens) {
+    if (!tokens.length) return true;
+    return tokens.every((token) => item.searchText.includes(token));
+  }
+
+  function renderList(listEl, items, basePath, currentPath) {
     listEl.replaceChildren();
 
-    for (const item of category.items) {
+    for (const item of items) {
       const entry = document.createElement("li");
       entry.className = "category-filter__item";
 
       const link = document.createElement("a");
       link.className = "category-filter__link";
+      if (item.path === currentPath) {
+        link.classList.add("category-filter__link--active");
+      }
       link.href = createLink(basePath, item.path);
       link.textContent = `${item.repo} / ${item.title}`;
 
@@ -58,49 +75,71 @@
     }
   }
 
-  function mountCategoryFilter(categories) {
+  function renderEmptyState(listEl, query) {
+    listEl.replaceChildren();
+
+    const entry = document.createElement("li");
+    entry.className = "category-filter__empty";
+    entry.textContent = query
+      ? `No files matched "${query}".`
+      : "No files available.";
+
+    listEl.appendChild(entry);
+  }
+
+  function mountCategoryFilter(items) {
     const sidebarNav = document.querySelector(".md-sidebar--primary .md-sidebar__scrollwrap");
-    if (!sidebarNav || !categories.length) return;
+    if (!sidebarNav || !items.length) return;
 
     const container = document.createElement("section");
     container.className = "category-filter";
 
     const title = document.createElement("div");
     title.className = "category-filter__title";
-    title.textContent = "Browse By Category";
+    title.textContent = "Filter Files";
 
-    const select = document.createElement("select");
-    select.className = "category-filter__select";
+    const description = document.createElement("p");
+    description.className = "category-filter__description";
+    description.textContent = "Type one or more terms. All terms must match.";
 
-    for (const category of categories) {
-      const option = document.createElement("option");
-      option.value = category.key;
-      option.textContent = `${category.label} (${category.items.length})`;
-      select.appendChild(option);
-    }
+    const input = document.createElement("input");
+    input.className = "category-filter__input";
+    input.type = "search";
+    input.placeholder = "e.g. API ko";
+    input.autocomplete = "off";
+
+    const count = document.createElement("div");
+    count.className = "category-filter__count";
 
     const list = document.createElement("ul");
     list.className = "category-filter__list";
 
     container.appendChild(title);
-    container.appendChild(select);
+    container.appendChild(description);
+    container.appendChild(input);
+    container.appendChild(count);
     container.appendChild(list);
     sidebarNav.prepend(container);
 
     const basePath = currentBasePath();
-    const initial = findCurrentCategory(categories, basePath);
-    if (initial) {
-      select.value = initial;
-    }
+    const currentPath = findCurrentPath(items, basePath);
 
     const refresh = () => {
-      const category = categories.find((entry) => entry.key === select.value);
-      if (category) {
-        renderList(list, category, basePath);
+      const query = input.value.trim();
+      const tokens = tokenizeQuery(query);
+      const matched = items.filter((item) => matchesAllTokens(item, tokens));
+
+      count.textContent = `${matched.length} / ${items.length} files`;
+
+      if (matched.length) {
+        renderList(list, matched, basePath, currentPath);
+        return;
       }
+
+      renderEmptyState(list, query);
     };
 
-    select.addEventListener("change", refresh);
+    input.addEventListener("input", refresh);
     refresh();
   }
 
@@ -109,7 +148,11 @@
       const response = await fetch(DATA_URL);
       if (!response.ok) return;
       const payload = await response.json();
-      mountCategoryFilter(payload.categories || []);
+      const items = (payload.items || []).map((item) => ({
+        ...item,
+        searchText: `${item.repo} ${item.title} ${item.path}`.toLowerCase(),
+      }));
+      mountCategoryFilter(items);
     } catch (_error) {
       // Ignore sidebar enhancement failures and keep the default nav usable.
     }

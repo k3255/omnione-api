@@ -10,7 +10,6 @@ ORG = "OmniOneID"
 TARGET_DIR = Path("docs/collected")
 DOCS_DIR = Path("docs")
 MKDOCS_CONFIG = Path("mkdocs.yml")
-CATEGORIES_DIR = DOCS_DIR / "categories"
 ASSETS_DATA_DIR = DOCS_DIR / "assets" / "data"
 GITHUB_API = "https://api.github.com"
 
@@ -163,100 +162,42 @@ def _nav_lines_for_dir(directory: Path, depth: int):
     return lines
 
 
-def _category_name_for_repo_doc(md_file: Path) -> str | None:
-    repo_root = md_file.parents[1]
-    rel_parts = md_file.relative_to(repo_root).parts
-    if len(rel_parts) < 2:
-        return None
-    return rel_parts[0]
+def remove_category_indexes():
+    categories_dir = DOCS_DIR / "categories"
+    categories_index = DOCS_DIR / "categories.md"
+
+    if categories_dir.exists():
+        shutil.rmtree(categories_dir)
+        print(f"[REMOVED] {categories_dir}")
+
+    if categories_index.exists():
+        categories_index.unlink()
+        print(f"[REMOVED] {categories_index}")
 
 
-def collect_categories(collected_repos):
-    categories = {}
+def build_doc_index(collected_repos):
+    ASSETS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {"items": []}
 
     for repo_name in sorted(collected_repos):
         repo_dir = TARGET_DIR / repo_name
         for md_file in sorted(repo_dir.rglob("*.md")):
-            category = _category_name_for_repo_doc(md_file)
-            if not category:
-                continue
-            categories.setdefault(category, []).append((repo_name, md_file))
-
-    return categories
-
-
-def build_category_indexes(categories):
-    if CATEGORIES_DIR.exists():
-        shutil.rmtree(CATEGORIES_DIR)
-    CATEGORIES_DIR.mkdir(parents=True, exist_ok=True)
-
-    lines = [
-        "# Categories",
-        "",
-        f"총 {len(categories)}개 문서 카테고리를 제공합니다.",
-        "",
-    ]
-
-    for category in sorted(categories):
-        label = _display_name(Path(category))
-        category_rel = Path("categories") / f"{category}.md"
-        lines.append(f"- [{label}]({category_rel.as_posix()})")
-
-        category_lines = [
-            f"# {label}",
-            "",
-            f"`{category}` 카테고리에 속한 문서를 저장소별로 정리했습니다.",
-            "",
-        ]
-
-        current_repo = None
-        for repo_name, md_file in categories[category]:
-            if repo_name != current_repo:
-                category_lines.append(f"## {repo_name}")
-                current_repo = repo_name
-
-            rel = md_file.relative_to(DOCS_DIR)
-            repo_root = md_file.parents[1]
-            title_parts = md_file.relative_to(repo_root).parts[1:]
-            title = _display_name(Path("/".join(title_parts)))
-            category_lines.append(f"- [{title}]({rel.as_posix()})")
-
-        (CATEGORIES_DIR / f"{category}.md").write_text("\n".join(category_lines) + "\n", encoding="utf-8")
-
-    (DOCS_DIR / "categories.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"[CATEGORY INDEX CREATED] {DOCS_DIR / 'categories.md'}")
-
-
-def build_category_data(categories):
-    ASSETS_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {"categories": []}
-
-    for category in sorted(categories):
-        label = _display_name(Path(category))
-        items = []
-        for repo_name, md_file in categories[category]:
             rel = md_file.relative_to(DOCS_DIR).as_posix()
             repo_root = md_file.parents[1]
             title_parts = md_file.relative_to(repo_root).parts[1:]
             title = _display_name(Path("/".join(title_parts)))
-            items.append({
+            payload["items"].append({
                 "repo": repo_name,
                 "title": title,
                 "path": rel,
             })
 
-        payload["categories"].append({
-            "key": category,
-            "label": label,
-            "items": items,
-        })
-
-    output = ASSETS_DATA_DIR / "categories.json"
+    output = ASSETS_DATA_DIR / "doc-index.json"
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"[CATEGORY DATA CREATED] {output}")
+    print(f"[DOC INDEX CREATED] {output}")
 
 
-def update_mkdocs_nav(collected_repos, categories):
+def update_mkdocs_nav(collected_repos):
     lines = [
         "site_name: OmniOne Unified Docs Portal",
         "site_description: Consolidated Markdown docs from OmniOneID repositories",
@@ -273,7 +214,6 @@ def update_mkdocs_nav(collected_repos, categories):
         "nav:",
         "  - Home: index.md",
         "  - Collected Docs: collected-index.md",
-        "  - Categories: categories.md",
     ]
 
     if collected_repos:
@@ -394,10 +334,9 @@ def main():
             continue
 
     build_collected_index(collected_repos)
-    categories = collect_categories(collected_repos)
-    build_category_indexes(categories)
-    build_category_data(categories)
-    update_mkdocs_nav(collected_repos, categories)
+    remove_category_indexes()
+    build_doc_index(collected_repos)
+    update_mkdocs_nav(collected_repos)
 
     print("")
     print("[DONE]")

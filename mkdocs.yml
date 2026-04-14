@@ -13,7 +13,6 @@ theme:
 nav:
   - Home: index.md
   - Collected Docs: collected-index.md
-  - Categories: categories.md
 
 plugins:
   - search
