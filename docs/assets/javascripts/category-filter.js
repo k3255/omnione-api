@@ -89,6 +89,12 @@
     listEl.appendChild(entry);
   }
 
+  function setExpandedState(container, toggle, expanded) {
+    container.classList.toggle("category-filter--collapsed", !expanded);
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.textContent = expanded ? "Hide list" : "Show list";
+  }
+
   function mountCategoryFilter(items) {
     const sidebarNav = document.querySelector(".md-sidebar--primary .md-sidebar__scrollwrap");
     if (!sidebarNav || !items.length) return;
@@ -118,6 +124,10 @@
     const count = document.createElement("div");
     count.className = "category-filter__count";
 
+    const toggle = document.createElement("button");
+    toggle.className = "category-filter__toggle";
+    toggle.type = "button";
+
     const list = document.createElement("ul");
     list.className = "category-filter__list";
 
@@ -125,6 +135,7 @@
     container.appendChild(description);
     container.appendChild(input);
     container.appendChild(count);
+    container.appendChild(toggle);
     container.appendChild(list);
     sidebarNav.prepend(container);
 
@@ -145,6 +156,14 @@
 
       renderEmptyState(list, query);
     };
+
+    let expanded = true;
+    setExpandedState(container, toggle, expanded);
+
+    toggle.addEventListener("click", () => {
+      expanded = !expanded;
+      setExpandedState(container, toggle, expanded);
+    });
 
     input.addEventListener("input", refresh);
     refresh();
