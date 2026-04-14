@@ -3,10 +3,19 @@ site_description: Consolidated Markdown docs from OmniOneID repositories
 
 theme:
   name: material
+  palette:
+    primary: orange
+    accent: deep orange
+  features:
+    - search.highlight
+    - search.suggest
 
 nav:
   - Home: index.md
   - Collected Docs: collected-index.md
+
+plugins:
+  - search
 
 markdown_extensions:
   - toc:

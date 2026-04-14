@@ -9,6 +9,7 @@ ORG = "OmniOneID"
 TARGET_DIR = Path("docs/collected")
 DOCS_DIR = Path("docs")
 MKDOCS_CONFIG = Path("mkdocs.yml")
+CATEGORIES_DIR = DOCS_DIR / "categories"
 GITHUB_API = "https://api.github.com"
 
 TOKEN = os.environ.get("DOCS_READ_TOKEN", "")
@@ -160,13 +161,83 @@ def _nav_lines_for_dir(directory: Path, depth: int):
     return lines
 
 
-def update_mkdocs_nav(collected_repos):
+def _category_name_for_repo_doc(md_file: Path) -> str | None:
+    repo_root = md_file.parents[1]
+    rel_parts = md_file.relative_to(repo_root).parts
+    if len(rel_parts) < 2:
+        return None
+    return rel_parts[0]
+
+
+def collect_categories(collected_repos):
+    categories = {}
+
+    for repo_name in sorted(collected_repos):
+        repo_dir = TARGET_DIR / repo_name
+        for md_file in sorted(repo_dir.rglob("*.md")):
+            category = _category_name_for_repo_doc(md_file)
+            if not category:
+                continue
+            categories.setdefault(category, []).append((repo_name, md_file))
+
+    return categories
+
+
+def build_category_indexes(categories):
+    if CATEGORIES_DIR.exists():
+        shutil.rmtree(CATEGORIES_DIR)
+    CATEGORIES_DIR.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        "# Categories",
+        "",
+        f"총 {len(categories)}개 문서 카테고리를 제공합니다.",
+        "",
+    ]
+
+    for category in sorted(categories):
+        label = _display_name(Path(category))
+        category_rel = Path("categories") / f"{category}.md"
+        lines.append(f"- [{label}]({category_rel.as_posix()})")
+
+        category_lines = [
+            f"# {label}",
+            "",
+            f"`{category}` 카테고리에 속한 문서를 저장소별로 정리했습니다.",
+            "",
+        ]
+
+        current_repo = None
+        for repo_name, md_file in categories[category]:
+            if repo_name != current_repo:
+                category_lines.append(f"## {repo_name}")
+                current_repo = repo_name
+
+            rel = md_file.relative_to(DOCS_DIR)
+            repo_root = md_file.parents[1]
+            title_parts = md_file.relative_to(repo_root).parts[1:]
+            title = _display_name(Path("/".join(title_parts)))
+            category_lines.append(f"- [{title}]({rel.as_posix()})")
+
+        (CATEGORIES_DIR / f"{category}.md").write_text("\n".join(category_lines) + "\n", encoding="utf-8")
+
+    (DOCS_DIR / "categories.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[CATEGORY INDEX CREATED] {DOCS_DIR / 'categories.md'}")
+
+
+def update_mkdocs_nav(collected_repos, categories):
     lines = [
         "site_name: OmniOne Unified Docs Portal",
         "site_description: Consolidated Markdown docs from OmniOneID repositories",
         "",
         "theme:",
         "  name: material",
+        "  palette:",
+        "    primary: orange",
+        "    accent: deep orange",
+        "  features:",
+        "    - search.highlight",
+        "    - search.suggest",
         "",
         "nav:",
         "  - Home: index.md",
@@ -174,7 +245,7 @@ def update_mkdocs_nav(collected_repos):
     ]
 
     if collected_repos:
-        lines.append("  - Repositories:")
+        lines.append("  - By Repository:")
         for repo_name in sorted(collected_repos):
             repo_dir = TARGET_DIR / repo_name
             repo_nav = _nav_lines_for_dir(repo_dir, 4)
@@ -182,7 +253,17 @@ def update_mkdocs_nav(collected_repos):
                 lines.append(f"      - {repo_name}:")
                 lines.extend(repo_nav)
 
+    if categories:
+        lines.append("  - By Category:")
+        lines.append("      - Overview: categories.md")
+        for category in sorted(categories):
+            label = _display_name(Path(category))
+            lines.append(f"      - {label}: categories/{category}.md")
+
     lines.extend([
+        "",
+        "plugins:",
+        "  - search",
         "",
         "markdown_extensions:",
         "  - toc:",
@@ -282,7 +363,9 @@ def main():
             continue
 
     build_collected_index(collected_repos)
-    update_mkdocs_nav(collected_repos)
+    categories = collect_categories(collected_repos)
+    build_category_indexes(categories)
+    update_mkdocs_nav(collected_repos, categories)
 
     print("")
     print("[DONE]")

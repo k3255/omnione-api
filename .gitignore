@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 
 docs/collected/
+docs/categories/
+docs/categories.md
+docs/collected-index.md
 site/
 
 .DS_Store
