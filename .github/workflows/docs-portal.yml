@@ -1,0 +1,62 @@
+name: Build and Deploy Docs Portal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  schedule:
+    # GitHub Actions cron uses UTC. 02:00 UTC = 11:00 KST.
+    - cron: "0 2 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-docs.txt
+
+      - name: Collect docs from OmniOneID
+        env:
+          DOCS_READ_TOKEN: ${{ secrets.DOCS_READ_TOKEN }}
+        run: |
+          python scripts/collect_docs.py
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site
+        run: |
+          mkdocs build --site-dir site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,15 @@
+site_name: OmniOne Unified Docs Portal
+site_description: Consolidated Markdown docs from OmniOneID repositories
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - Collected Docs: collected-index.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
