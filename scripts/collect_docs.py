@@ -7,6 +7,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 ORG = "OmniOneID"
+BRANCHES = ("develop", "main")
+DEFAULT_BRANCH = BRANCHES[0]
 TARGET_DIR = Path("docs/collected")
 DOCS_DIR = Path("docs")
 MKDOCS_CONFIG = Path("mkdocs.yml")
@@ -122,9 +124,10 @@ def list_org_repos(org: str):
     return repos
 
 
-def list_dir(owner: str, repo: str, path: str):
+def list_dir(owner: str, repo: str, path: str, branch: str):
     encoded_path = quote(path, safe="/")
-    url = f"{GITHUB_API}/repos/{owner}/{repo}/contents/{encoded_path}"
+    encoded_branch = quote(branch, safe="")
+    url = f"{GITHUB_API}/repos/{owner}/{repo}/contents/{encoded_path}?ref={encoded_branch}"
     try:
         return gh_get(url)
     except requests.HTTPError as e:
@@ -175,29 +178,34 @@ def remove_category_indexes():
         print(f"[REMOVED] {categories_index}")
 
 
-def build_doc_index(collected_repos):
+def build_doc_index(collected_by_branch):
     ASSETS_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    payload = {"items": []}
+    payload = {
+        "branches": list(BRANCHES),
+        "defaultBranch": DEFAULT_BRANCH,
+        "items": [],
+    }
 
-    for repo_name in sorted(collected_repos):
-        repo_dir = TARGET_DIR / repo_name
-        for md_file in sorted(repo_dir.rglob("*.md")):
-            rel = md_file.relative_to(DOCS_DIR).as_posix()
-            repo_root = md_file.parents[1]
-            title_parts = md_file.relative_to(repo_root).parts[1:]
-            title = _display_name(Path("/".join(title_parts)))
-            payload["items"].append({
-                "repo": repo_name,
-                "title": title,
-                "path": rel,
-            })
+    for branch in BRANCHES:
+        for repo_name in sorted(collected_by_branch.get(branch, [])):
+            repo_dir = TARGET_DIR / branch / repo_name
+            for md_file in sorted(repo_dir.rglob("*.md")):
+                rel = md_file.relative_to(DOCS_DIR).as_posix()
+                title_parts = md_file.relative_to(repo_dir).parts
+                title = _display_name(Path("/".join(title_parts)))
+                payload["items"].append({
+                    "branch": branch,
+                    "repo": repo_name,
+                    "title": title,
+                    "path": rel,
+                })
 
     output = ASSETS_DATA_DIR / "doc-index.json"
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"[DOC INDEX CREATED] {output}")
 
 
-def update_mkdocs_nav(collected_repos):
+def update_mkdocs_nav(collected_by_branch):
     lines = [
         "site_name: OmniOne Unified Docs Portal",
         "site_description: Consolidated Markdown docs from OmniOneID repositories",
@@ -216,14 +224,21 @@ def update_mkdocs_nav(collected_repos):
         "  - Collected Docs: collected-index.md",
     ]
 
-    if collected_repos:
-        lines.append("  - By Repository:")
-        for repo_name in sorted(collected_repos):
-            repo_dir = TARGET_DIR / repo_name
-            repo_nav = _nav_lines_for_dir(repo_dir, 4)
-            if repo_nav:
-                lines.append(f"      - {repo_name}:")
-                lines.extend(repo_nav)
+    if any(collected_by_branch.values()):
+        lines.append("  - By Branch:")
+        for branch in BRANCHES:
+            collected_repos = collected_by_branch.get(branch, [])
+            if not collected_repos:
+                continue
+
+            lines.append(f"      - {branch}:")
+            lines.append(f"          - Overview: collected/{branch}/index.md")
+            for repo_name in sorted(collected_repos):
+                repo_dir = TARGET_DIR / branch / repo_name
+                repo_nav = _nav_lines_for_dir(repo_dir, 7)
+                if repo_nav:
+                    lines.append(f"          - {repo_name}:")
+                    lines.extend(repo_nav)
 
     lines.extend([
         "",
@@ -248,8 +263,8 @@ def update_mkdocs_nav(collected_repos):
     print(f"[MKDOCS NAV UPDATED] {MKDOCS_CONFIG}")
 
 
-def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: Path):
-    items = list_dir(owner, repo, path)
+def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: Path, branch: str):
+    items = list_dir(owner, repo, path, branch)
     if not items:
         return False
 
@@ -262,7 +277,7 @@ def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: P
         suffix = Path(item_name).suffix.lower()
 
         if item_type == "dir":
-            if collect_docs_recursive(owner, repo, item_path, repo_target_root):
+            if collect_docs_recursive(owner, repo, item_path, repo_target_root, branch):
                 found = True
 
         elif item_type == "file" and suffix in ALL_EXTENSIONS:
@@ -283,7 +298,7 @@ def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: P
     return found
 
 
-def build_collected_index(collected_repos):
+def build_legacy_collected_index(collected_repos):
     lines = [
         "# Collected Documents",
         "",
@@ -306,6 +321,59 @@ def build_collected_index(collected_repos):
     print(f"[INDEX CREATED] {output_file}")
 
 
+def build_branch_index(branch: str, collected_repos):
+    branch_root = TARGET_DIR / branch
+    lines = [
+        f"# {branch} Documents",
+        "",
+        f"Collected `docs/` content from {len(collected_repos)} repositories on `{branch}`.",
+        "",
+    ]
+
+    for repo_name in sorted(collected_repos):
+        lines.append(f"## {repo_name}")
+        repo_dir = branch_root / repo_name
+
+        for md_file in sorted(repo_dir.rglob("*.md")):
+            rel = md_file.relative_to(branch_root)
+            title = md_file.stem
+            lines.append(f"- [{title}]({rel.as_posix()})")
+        lines.append("")
+
+    output_file = branch_root / "index.md"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text("\n".join(lines), encoding="utf-8")
+    print(f"[INDEX CREATED] {output_file}")
+
+
+def build_collected_index(collected_by_branch):
+    total = sum(len(repos) for repos in collected_by_branch.values())
+    lines = [
+        "# Collected Documents",
+        "",
+        f"Collected `docs/` content from {total} repository/branch combinations.",
+        "",
+    ]
+
+    for branch in BRANCHES:
+        collected_repos = collected_by_branch.get(branch, [])
+        lines.append(f"## {branch}")
+        lines.append("")
+        if collected_repos:
+            lines.append(f"- [Overview](collected/{branch}/index.md)")
+            for repo_name in sorted(collected_repos):
+                lines.append(f"- {repo_name}")
+        else:
+            lines.append("- No documents collected.")
+        lines.append("")
+
+        build_branch_index(branch, collected_repos)
+
+    output_file = DOCS_DIR / "collected-index.md"
+    output_file.write_text("\n".join(lines), encoding="utf-8")
+    print(f"[INDEX CREATED] {output_file}")
+
+
 def main():
     if TARGET_DIR.exists():
         shutil.rmtree(TARGET_DIR)
@@ -313,34 +381,35 @@ def main():
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
     repos = list_org_repos(ORG)
-    collected_repos = []
+    collected_by_branch = {branch: [] for branch in BRANCHES}
 
-    for repo in repos:
-        repo_name = repo["name"]
+    for branch in BRANCHES:
+        for repo in repos:
+            repo_name = repo["name"]
 
-        if repo.get("archived") or repo.get("disabled"):
-            print(f"[SKIP] {repo_name} archived or disabled")
-            continue
+            if repo.get("archived") or repo.get("disabled"):
+                print(f"[SKIP] {repo_name} archived or disabled")
+                continue
 
-        print(f"[CHECK] {repo_name}/docs")
-        repo_target = TARGET_DIR / repo_name
+            print(f"[CHECK] {repo_name}@{branch}/docs")
+            repo_target = TARGET_DIR / branch / repo_name
 
-        try:
-            found = collect_docs_recursive(ORG, repo_name, "docs", repo_target)
-            if found:
-                collected_repos.append(repo_name)
-        except Exception as e:
-            print(f"[ERROR] {repo_name}: {e}")
-            continue
+            try:
+                found = collect_docs_recursive(ORG, repo_name, "docs", repo_target, branch)
+                if found:
+                    collected_by_branch[branch].append(repo_name)
+            except Exception as e:
+                print(f"[ERROR] {repo_name}@{branch}: {e}")
+                continue
 
-    build_collected_index(collected_repos)
+    build_collected_index(collected_by_branch)
     remove_category_indexes()
-    build_doc_index(collected_repos)
-    update_mkdocs_nav(collected_repos)
+    build_doc_index(collected_by_branch)
+    update_mkdocs_nav(collected_by_branch)
 
     print("")
     print("[DONE]")
-    print(f"Collected repos: {collected_repos}")
+    print(f"Collected repos: {collected_by_branch}")
 
 
 if __name__ == "__main__":
