@@ -1,8 +1,9 @@
-site_name: OmniOne Unified Docs Portal
+site_name: Docs Portal
 site_description: Consolidated Markdown docs from OmniOneID repositories
 
 theme:
   name: material
+  logo: images/logo.png
   palette:
     primary: orange
     accent: deep orange
@@ -13,6 +14,151 @@ theme:
 nav:
   - Home: index.md
   - Collected Docs: collected-index.md
+  - By Branch:
+      - develop:
+          - Overview: collected/develop/index.md
+          - did-api-server:
+              - Api:
+                - APIGateway API: collected/develop/did-api-server/api/APIGateway_API.md
+                - APIGateway API Ko: collected/develop/did-api-server/api/APIGateway_API_ko.md
+              - errorCode:
+                - APIGateway ErrorCode: collected/develop/did-api-server/errorCode/APIGateway_ErrorCode.md
+                - APIGateway ErrorCode Ko: collected/develop/did-api-server/errorCode/APIGateway_ErrorCode_ko.md
+              - Installation:
+                - OpenDID APIGatewayServer InstallationAndOperation Guide: collected/develop/did-api-server/installation/OpenDID_APIGatewayServer_InstallationAndOperation_Guide.md
+                - OpenDID APIGatewayServer InstallationAndOperation Guide Ko: collected/develop/did-api-server/installation/OpenDID_APIGatewayServer_InstallationAndOperation_Guide_ko.md
+          - did-blockchain-sdk-server:
+              - Api:
+                - Blockchain API: collected/develop/did-blockchain-sdk-server/api/Blockchain_API.md
+                - Blockchain API Ko: collected/develop/did-blockchain-sdk-server/api/Blockchain_API_ko.md
+                - Blockchain EVM API: collected/develop/did-blockchain-sdk-server/api/Blockchain_EVM_API.md
+                - BlockchainErrorCode: collected/develop/did-blockchain-sdk-server/api/BlockchainErrorCode.md
+          - did-ca-server:
+              - Admin:
+                - OpenDID CAAdmin Operation Guide: collected/develop/did-ca-server/admin/OpenDID_CAAdmin_Operation_Guide.md
+                - OpenDID CAAdmin Operation Guide Ko: collected/develop/did-ca-server/admin/OpenDID_CAAdmin_Operation_Guide_ko.md
+              - Api:
+                - CAS API: collected/develop/did-ca-server/api/CAS_API.md
+                - CAS API Ko: collected/develop/did-ca-server/api/CAS_API_ko.md
+              - Db:
+                - OpenDID TableDefinition CAS: collected/develop/did-ca-server/db/OpenDID_TableDefinition_CAS.md
+                - OpenDID TableDefinition CAS Ko: collected/develop/did-ca-server/db/OpenDID_TableDefinition_CAS_ko.md
+              - errorCode:
+                - CA ErrorCode: collected/develop/did-ca-server/errorCode/CA_ErrorCode.md
+                - CA ErrorCode Kd: collected/develop/did-ca-server/errorCode/CA_ErrorCode_kd.md
+              - Installation:
+                - OpenDID CAServer Installation Guide: collected/develop/did-ca-server/installation/OpenDID_CAServer_Installation_Guide.md
+                - OpenDID CAServer Installation Guide Ko: collected/develop/did-ca-server/installation/OpenDID_CAServer_Installation_Guide_ko.md
+          - did-cli-tool-server:
+              - Api:
+                - CLI Tool SERVER API: collected/develop/did-cli-tool-server/api/CLI-Tool_SERVER_API.md
+                - CLI Tool SERVER API Ko: collected/develop/did-cli-tool-server/api/CLI-Tool_SERVER_API_ko.md
+          - did-client-sdk-aos:
+              - Api:
+                - Private:
+                  - DIDManager: collected/develop/did-client-sdk-aos/api/private/DIDManager.md
+                  - DIDManager Ko: collected/develop/did-client-sdk-aos/api/private/DIDManager_ko.md
+                  - KeyManager: collected/develop/did-client-sdk-aos/api/private/KeyManager.md
+                  - KeyManager Ko: collected/develop/did-client-sdk-aos/api/private/KeyManager_ko.md
+                  - SecureEncryptor: collected/develop/did-client-sdk-aos/api/private/SecureEncryptor.md
+                  - SecureEncryptor Ko: collected/develop/did-client-sdk-aos/api/private/SecureEncryptor_ko.md
+                  - VCManager: collected/develop/did-client-sdk-aos/api/private/VCManager.md
+                  - VCManager Ko: collected/develop/did-client-sdk-aos/api/private/VCManager_ko.md
+                  - ZKPManager: collected/develop/did-client-sdk-aos/api/private/ZKPManager.md
+                  - ZKPManager Ko: collected/develop/did-client-sdk-aos/api/private/ZKPManager_ko.md
+                - Public:
+                  - Communication: collected/develop/did-client-sdk-aos/api/public/Communication.md
+                  - Communication Ko: collected/develop/did-client-sdk-aos/api/public/Communication_ko.md
+                  - CommunicationError: collected/develop/did-client-sdk-aos/api/public/CommunicationError.md
+                  - DataModel: collected/develop/did-client-sdk-aos/api/public/DataModel.md
+                  - DataModel Ko: collected/develop/did-client-sdk-aos/api/public/DataModel_ko.md
+                  - Utility: collected/develop/did-client-sdk-aos/api/public/Utility.md
+                  - Utility Ko: collected/develop/did-client-sdk-aos/api/public/Utility_ko.md
+                  - UtilityError: collected/develop/did-client-sdk-aos/api/public/UtilityError.md
+                  - WalletAPI: collected/develop/did-client-sdk-aos/api/public/WalletAPI.md
+                  - WalletAPI Ko: collected/develop/did-client-sdk-aos/api/public/WalletAPI_ko.md
+                  - WalletCoreError: collected/develop/did-client-sdk-aos/api/public/WalletCoreError.md
+                  - WalletError: collected/develop/did-client-sdk-aos/api/public/WalletError.md
+                  - ZKP DataModel: collected/develop/did-client-sdk-aos/api/public/ZKP_DataModel.md
+                  - ZKP DataModel Ko: collected/develop/did-client-sdk-aos/api/public/ZKP_DataModel_ko.md
+                - README: collected/develop/did-client-sdk-aos/api/README.md
+          - did-client-sdk-ios:
+              - Api:
+                - Private:
+                  - DIDManager: collected/develop/did-client-sdk-ios/api/private/DIDManager.md
+                  - DIDManager Ko: collected/develop/did-client-sdk-ios/api/private/DIDManager_ko.md
+                  - KeyManager: collected/develop/did-client-sdk-ios/api/private/KeyManager.md
+                  - KeyManager Ko: collected/develop/did-client-sdk-ios/api/private/KeyManager_ko.md
+                  - SecureEncryptor: collected/develop/did-client-sdk-ios/api/private/SecureEncryptor.md
+                  - SecureEncryptor Ko: collected/develop/did-client-sdk-ios/api/private/SecureEncryptor_ko.md
+                  - VCManager: collected/develop/did-client-sdk-ios/api/private/VCManager.md
+                  - VCManager Ko: collected/develop/did-client-sdk-ios/api/private/VCManager_ko.md
+                  - ZKPManager: collected/develop/did-client-sdk-ios/api/private/ZKPManager.md
+                  - ZKPManager Ko: collected/develop/did-client-sdk-ios/api/private/ZKPManager_ko.md
+                - README: collected/develop/did-client-sdk-ios/api/README.md
+          - did-common-sdk-server:
+              - Api:
+                - Server Common SDK DateTimeUtil: collected/develop/did-common-sdk-server/api/Server Common SDK_DateTimeUtil.md
+                - Server Common SDK DidUtil: collected/develop/did-common-sdk-server/api/Server Common SDK_DidUtil.md
+                - Server Common SDK DidValidator: collected/develop/did-common-sdk-server/api/Server Common SDK_DidValidator.md
+                - Server Common SDK HexUtil: collected/develop/did-common-sdk-server/api/Server Common SDK_HexUtil.md
+                - Server Common SDK HttpClientUtil: collected/develop/did-common-sdk-server/api/Server Common SDK_HttpClientUtil.md
+                - Server Common SDK JsonUtil: collected/develop/did-common-sdk-server/api/Server Common SDK_JsonUtil.md
+                - Server Common SDK QrMaker: collected/develop/did-common-sdk-server/api/Server Common SDK_QrMaker.md
+              - errorCode:
+                - Common ErrorCode: collected/develop/did-common-sdk-server/errorCode/Common_ErrorCode.md
+          - did-core-sdk-server:
+              - CORE SDK SERVER API: collected/develop/did-core-sdk-server/CORE_SDK_SERVER_API.md
+              - CORE SDK SERVER API Ko: collected/develop/did-core-sdk-server/CORE_SDK_SERVER_API_ko.md
+              - CoreSDKError: collected/develop/did-core-sdk-server/CoreSDKError.md
+          - did-crypto-sdk-server:
+              - Api:
+                - CRYPTO SDK SERVER API: collected/develop/did-crypto-sdk-server/api/CRYPTO_SDK-SERVER_API.md
+                - CRYPTO SDK SERVER API Ko: collected/develop/did-crypto-sdk-server/api/CRYPTO_SDK-SERVER_API_ko.md
+                - CryptoSDKError: collected/develop/did-crypto-sdk-server/api/CryptoSDKError.md
+          - did-fabric-contract:
+              - Api:
+                - ContractError: collected/develop/did-fabric-contract/api/ContractError.md
+          - did-verifier-server:
+              - Admin:
+                - OpenDID VerifierAdmin Operation Guide: collected/develop/did-verifier-server/admin/OpenDID_VerifierAdmin_Operation_Guide.md
+                - OpenDID VerifierAdmin Operation Guide Ko: collected/develop/did-verifier-server/admin/OpenDID_VerifierAdmin_Operation_Guide_ko.md
+              - Api:
+                - Verifier API: collected/develop/did-verifier-server/api/Verifier_API.md
+                - Verifier API Ko: collected/develop/did-verifier-server/api/Verifier_API_ko.md
+              - Db:
+                - OpenDID TableDefinition Verifier: collected/develop/did-verifier-server/db/OpenDID_TableDefinition_Verifier.md
+                - OpenDID TableDefinition Verifier Ko: collected/develop/did-verifier-server/db/OpenDID_TableDefinition_Verifier_ko.md
+              - errorCode:
+                - Verifier ErrorCode: collected/develop/did-verifier-server/errorCode/Verifier_ErrorCode.md
+                - Verifier ErrorCode Ko: collected/develop/did-verifier-server/errorCode/Verifier_ErrorCode_ko.md
+              - Installation:
+                - OpenDID VerifierServer Installation Guide: collected/develop/did-verifier-server/installation/OpenDID_VerifierServer_Installation_Guide.md
+                - OpenDID VerifierServer Installation Guide Ko: collected/develop/did-verifier-server/installation/OpenDID_VerifierServer_Installation_Guide_ko.md
+          - did-wallet-sdk-server:
+              - Api:
+                - WALLET SDK SERVER API: collected/develop/did-wallet-sdk-server/api/WALLET_SDK_SERVER_API.md
+                - WALLET SDK SERVER API Ko: collected/develop/did-wallet-sdk-server/api/WALLET_SDK_SERVER_API_ko.md
+                - WalletSDKError: collected/develop/did-wallet-sdk-server/api/WalletSDKError.md
+          - did-wallet-server:
+              - Admin:
+                - OpenDID WalletAdmin Operation Guide: collected/develop/did-wallet-server/admin/OpenDID_WalletAdmin_Operation_Guide.md
+                - OpenDID WalletAdmin Operation Guide Ko: collected/develop/did-wallet-server/admin/OpenDID_WalletAdmin_Operation_Guide_ko.md
+              - Api:
+                - Wallet API: collected/develop/did-wallet-server/api/Wallet_API.md
+                - Wallet API Ko: collected/develop/did-wallet-server/api/Wallet_API_ko.md
+              - Db:
+                - OpenDID TableDefinition Wallet: collected/develop/did-wallet-server/db/OpenDID_TableDefinition_Wallet.md
+                - OpenDID TableDefinition Wallet Kd: collected/develop/did-wallet-server/db/OpenDID_TableDefinition_Wallet_kd.md
+              - errorCode:
+                - Wallet ErrorCode: collected/develop/did-wallet-server/errorCode/Wallet_ErrorCode.md
+                - Wallet ErrorCode Ko: collected/develop/did-wallet-server/errorCode/Wallet_ErrorCode_ko.md
+              - Installation:
+                - OpenDID WalletServer Installation Guide: collected/develop/did-wallet-server/installation/OpenDID_WalletServer_Installation_Guide.md
+                - OpenDID WalletServer Installation Guide Ko: collected/develop/did-wallet-server/installation/OpenDID_WalletServer_Installation_Guide_ko.md
+          - eosio.contracts:
+              - Eosio.msig: collected/develop/eosio.contracts/eosio.msig.md
+              - Eosio.wrap: collected/develop/eosio.contracts/eosio.wrap.md
 
 plugins:
   - search

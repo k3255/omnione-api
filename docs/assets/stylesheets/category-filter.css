@@ -2,6 +2,22 @@
   max-width: 92rem;
 }
 
+.md-header__button.md-logo {
+  margin: 0 0.35rem 0 0;
+  padding: 0.25rem;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.35rem;
+  width: auto;
+}
+
+.md-header__title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .branch-selector {
   display: flex;
   align-items: center;
@@ -11,10 +27,6 @@
   font-size: 0.7rem;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.branch-selector__label {
-  opacity: 0.86;
 }
 
 .branch-selector__select {
@@ -39,10 +51,6 @@
 }
 
 @media screen and (max-width: 44.984375em) {
-  .branch-selector__label {
-    display: none;
-  }
-
   .branch-selector__select {
     min-width: 5.2rem;
   }

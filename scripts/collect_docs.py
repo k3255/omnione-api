@@ -207,11 +207,12 @@ def build_doc_index(collected_by_branch):
 
 def update_mkdocs_nav(collected_by_branch):
     lines = [
-        "site_name: OmniOne Unified Docs Portal",
+        "site_name: Docs Portal",
         "site_description: Consolidated Markdown docs from OmniOneID repositories",
         "",
         "theme:",
         "  name: material",
+        "  logo: images/logo.png",
         "  palette:",
         "    primary: orange",
         "    accent: deep orange",

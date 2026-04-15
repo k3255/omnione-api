@@ -224,6 +224,27 @@
     refresh();
   }
 
+  function directNavText(item) {
+    const link = Array.from(item.children).find((child) =>
+      child.classList && child.classList.contains("md-nav__link")
+    );
+    return link ? link.textContent.trim() : "";
+  }
+
+  function mountBranchNavFilter(branches, branch) {
+    const sidebar = document.querySelector(".md-sidebar--primary");
+    if (!sidebar) return;
+
+    const branchSet = new Set(branches);
+    const navItems = sidebar.querySelectorAll(".md-nav__item");
+    for (const item of navItems) {
+      const text = directNavText(item);
+      if (branchSet.has(text)) {
+        item.hidden = text !== branch;
+      }
+    }
+  }
+
   function mountBranchSelector(branches, branch, items) {
     const header = document.querySelector(".md-header__inner");
     if (!header || !branches.length) return;
@@ -235,10 +256,6 @@
 
     const wrapper = document.createElement("label");
     wrapper.className = "branch-selector";
-
-    const label = document.createElement("span");
-    label.className = "branch-selector__label";
-    label.textContent = "Branch";
 
     const select = document.createElement("select");
     select.className = "branch-selector__select";
@@ -260,7 +277,6 @@
       window.location.assign(createLink(basePath, destination));
     });
 
-    wrapper.appendChild(label);
     wrapper.appendChild(select);
     header.appendChild(wrapper);
   }
@@ -270,6 +286,7 @@
       const response = await fetch(dataUrl());
       if (!response.ok) {
         const branch = selectedBranch(FALLBACK_BRANCHES, FALLBACK_BRANCHES[0]);
+        mountBranchNavFilter(FALLBACK_BRANCHES, branch);
         mountBranchSelector(FALLBACK_BRANCHES, branch, []);
         return;
       }
@@ -280,10 +297,12 @@
         ...item,
         searchText: `${item.repo} ${item.title} ${item.path}`.toLowerCase(),
       }));
+      mountBranchNavFilter(branches, branch);
       mountBranchSelector(branches, branch, items);
       mountCategoryFilter(items, branch);
     } catch (_error) {
       const branch = selectedBranch(FALLBACK_BRANCHES, FALLBACK_BRANCHES[0]);
+      mountBranchNavFilter(FALLBACK_BRANCHES, branch);
       mountBranchSelector(FALLBACK_BRANCHES, branch, []);
     }
   }
