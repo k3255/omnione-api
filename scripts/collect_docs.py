@@ -2,6 +2,7 @@ import os
 import time
 import shutil
 import json
+import re
 import requests
 from pathlib import Path
 from urllib.parse import quote
@@ -30,6 +31,10 @@ ASSET_EXTENSIONS = {
 }
 ALL_EXTENSIONS = TEXT_EXTENSIONS | ASSET_EXTENSIONS
 MAX_RETRIES = 3
+LOCAL_IMAGES_PREFIX_RE = re.compile(
+    r"(?P<prefix>\]\(\s*|(?:src|href)\s*=\s*[\"']|^[ \t]*\[[^\]]+\]:\s*)\./(?P<path>images/)",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 class GitHubFetchError(RuntimeError):
@@ -109,6 +114,10 @@ def raw_download(url: str) -> bytes:
 def save_binary(download_url: str, target_path: Path):
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.write_bytes(raw_download(download_url))
+
+
+def normalize_markdown_paths(content: str) -> str:
+    return LOCAL_IMAGES_PREFIX_RE.sub(r"\g<prefix>\g<path>", content)
 
 
 def list_org_repos(org: str):
@@ -288,6 +297,7 @@ def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: P
 
             if suffix in TEXT_EXTENSIONS:
                 raw = raw_download(item["download_url"]).decode("utf-8", errors="replace")
+                raw = normalize_markdown_paths(raw)
                 target.write_text(raw, encoding="utf-8")
                 print(f"[MD] {repo}/{item_path} -> {target}")
             else:
