@@ -31,9 +31,13 @@ ASSET_EXTENSIONS = {
 }
 ALL_EXTENSIONS = TEXT_EXTENSIONS | ASSET_EXTENSIONS
 MAX_RETRIES = 3
-LOCAL_IMAGES_PREFIX_RE = re.compile(
-    r"(?P<prefix>\]\(\s*|(?:src|href)\s*=\s*[\"']|^[ \t]*\[[^\]]+\]:\s*)\./(?P<path>images/)",
+MARKDOWN_LOCAL_IMAGES_PREFIX_RE = re.compile(
+    r"(?P<prefix>\]\(\s*<?|^[ \t]*\[[^\]]+\]:\s*<?)\./(?P<path>images/)",
     re.IGNORECASE | re.MULTILINE,
+)
+HTML_LOCAL_IMAGES_ATTR_RE = re.compile(
+    r"(?P<prefix>\b(?:src|href)\s*=\s*[\"']?)(?:\./)?(?P<path>images/)",
+    re.IGNORECASE,
 )
 
 
@@ -117,7 +121,8 @@ def save_binary(download_url: str, target_path: Path):
 
 
 def normalize_markdown_paths(content: str) -> str:
-    return LOCAL_IMAGES_PREFIX_RE.sub(r"\g<prefix>\g<path>", content)
+    content = MARKDOWN_LOCAL_IMAGES_PREFIX_RE.sub(r"\g<prefix>\g<path>", content)
+    return HTML_LOCAL_IMAGES_ATTR_RE.sub(r"\g<prefix>../\g<path>", content)
 
 
 def list_org_repos(org: str):
