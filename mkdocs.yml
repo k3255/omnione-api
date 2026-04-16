@@ -172,5 +172,6 @@ extra_css:
 markdown_extensions:
   - toc:
       permalink: true
+      slugify: !!python/name:markdown.extensions.toc.slugify_unicode
   - tables
   - fenced_code

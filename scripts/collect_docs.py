@@ -12,8 +12,10 @@ BRANCHES = ("develop", "main")
 DEFAULT_BRANCH = BRANCHES[0]
 TARGET_DIR = Path("docs/collected")
 DOCS_DIR = Path("docs")
+REPO_DOCS_DIRNAME = "docs"
 MKDOCS_CONFIG = Path("mkdocs.yml")
 ASSETS_DATA_DIR = DOCS_DIR / "assets" / "data"
+CACHE_FILE = ASSETS_DATA_DIR / "collect-cache.json"
 GITHUB_API = "https://api.github.com"
 
 TOKEN = os.environ.get("DOCS_READ_TOKEN", "")
@@ -25,11 +27,11 @@ if TOKEN:
     HEADERS["Authorization"] = f"Bearer {TOKEN}"
 
 TEXT_EXTENSIONS = {".md"}
-ASSET_EXTENSIONS = {
+IMAGE_EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp",
-    ".json", ".yaml", ".yml"
 }
-ALL_EXTENSIONS = TEXT_EXTENSIONS | ASSET_EXTENSIONS
+DOCS_ONLY_EXTENSIONS = {".json", ".yaml", ".yml"}
+ALL_EXTENSIONS = TEXT_EXTENSIONS | IMAGE_EXTENSIONS | DOCS_ONLY_EXTENSIONS
 MAX_RETRIES = 3
 MARKDOWN_LOCAL_IMAGES_PREFIX_RE = re.compile(
     r"(?P<prefix>\]\(\s*<?|^[ \t]*\[[^\]]+\]:\s*<?)\./(?P<path>images/)",
@@ -138,6 +140,40 @@ def list_org_repos(org: str):
     return repos
 
 
+def load_cache():
+    if not CACHE_FILE.exists():
+        return {"version": 1, "repos": {}}
+
+    try:
+        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"version": 1, "repos": {}}
+
+    if not isinstance(data, dict):
+        return {"version": 1, "repos": {}}
+
+    repos = data.get("repos")
+    if not isinstance(repos, dict):
+        repos = {}
+
+    return {
+        "version": 1,
+        "repos": repos,
+    }
+
+
+def save_cache(cache):
+    ASSETS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CACHE_FILE.write_text(
+        json.dumps(cache, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def repo_cache_key(branch: str, repo: str) -> str:
+    return f"{branch}/{repo}"
+
+
 def list_dir(owner: str, repo: str, path: str, branch: str):
     encoded_path = quote(path, safe="/")
     encoded_branch = quote(branch, safe="")
@@ -150,6 +186,58 @@ def list_dir(owner: str, repo: str, path: str, branch: str):
         raise
 
 
+def list_repo_tree(owner: str, repo: str, branch: str):
+    encoded_branch = quote(branch, safe="")
+    url = f"{GITHUB_API}/repos/{owner}/{repo}/git/trees/{encoded_branch}?recursive=1"
+    data = gh_get(url)
+    return data.get("tree", [])
+
+
+def remove_empty_parent_dirs(path: Path, stop_at: Path):
+    current = path.parent
+    stop_at = stop_at.resolve()
+
+    while current.exists():
+        try:
+            current_resolved = current.resolve()
+        except OSError:
+            break
+
+        if current_resolved == stop_at:
+            break
+
+        try:
+            current.rmdir()
+        except OSError:
+            break
+
+        current = current.parent
+
+
+def prune_repo_target(repo_target_root: Path, previous_files: set[str], current_files: set[str]):
+    stale_files = previous_files - current_files
+    for rel_path in sorted(stale_files):
+        target = repo_target_root / Path(rel_path)
+        if target.exists():
+            target.unlink()
+            print(f"[REMOVED] {target}")
+            remove_empty_parent_dirs(target, repo_target_root)
+
+
+def prune_stale_repo_cache(cache, active_repo_keys: set[str]):
+    repos_cache = cache.get("repos", {})
+    stale_repo_keys = set(repos_cache) - active_repo_keys
+
+    for cache_key in sorted(stale_repo_keys):
+        branch, repo = cache_key.split("/", 1)
+        repo_target_root = TARGET_DIR / branch / repo
+        if repo_target_root.exists():
+            shutil.rmtree(repo_target_root)
+            print(f"[REMOVED] {repo_target_root}")
+            remove_empty_parent_dirs(repo_target_root, TARGET_DIR)
+        repos_cache.pop(cache_key, None)
+
+
 def _display_name(path: Path) -> str:
     parts = path.stem.replace("_", " ").replace("-", " ").split()
     if not parts:
@@ -157,8 +245,27 @@ def _display_name(path: Path) -> str:
     return " ".join(part if any(c.isupper() for c in part) else part.capitalize() for part in parts)
 
 
+def _repo_docs_dir(repo_root: Path) -> Path:
+    return repo_root / REPO_DOCS_DIRNAME
+
+
+def _is_under_docs(path: Path) -> bool:
+    return bool(path.parts) and path.parts[0] == REPO_DOCS_DIRNAME
+
+
+def _should_collect_repo_file(path: Path) -> bool:
+    suffix = path.suffix.lower()
+    if suffix in TEXT_EXTENSIONS | IMAGE_EXTENSIONS:
+        return True
+    if suffix in DOCS_ONLY_EXTENSIONS and _is_under_docs(path):
+        return True
+    return False
+
+
 def _nav_lines_for_dir(directory: Path, depth: int):
     lines = []
+    if not directory.exists():
+        return lines
 
     for child in sorted(directory.iterdir(), key=lambda item: (item.is_file(), item.name.lower())):
         if child.name.startswith("."):
@@ -202,7 +309,9 @@ def build_doc_index(collected_by_branch):
 
     for branch in BRANCHES:
         for repo_name in sorted(collected_by_branch.get(branch, [])):
-            repo_dir = TARGET_DIR / branch / repo_name
+            repo_dir = _repo_docs_dir(TARGET_DIR / branch / repo_name)
+            if not repo_dir.exists():
+                continue
             for md_file in sorted(repo_dir.rglob("*.md")):
                 rel = md_file.relative_to(DOCS_DIR).as_posix()
                 title_parts = md_file.relative_to(repo_dir).parts
@@ -249,7 +358,7 @@ def update_mkdocs_nav(collected_by_branch):
             lines.append(f"      - {branch}:")
             lines.append(f"          - Overview: collected/{branch}/index.md")
             for repo_name in sorted(collected_repos):
-                repo_dir = TARGET_DIR / branch / repo_name
+                repo_dir = _repo_docs_dir(TARGET_DIR / branch / repo_name)
                 repo_nav = _nav_lines_for_dir(repo_dir, 7)
                 if repo_nav:
                     lines.append(f"          - {repo_name}:")
@@ -269,6 +378,7 @@ def update_mkdocs_nav(collected_by_branch):
         "markdown_extensions:",
         "  - toc:",
         "      permalink: true",
+        "      slugify: !!python/name:markdown.extensions.toc.slugify_unicode",
         "  - tables",
         "  - fenced_code",
         "",
@@ -278,40 +388,61 @@ def update_mkdocs_nav(collected_by_branch):
     print(f"[MKDOCS NAV UPDATED] {MKDOCS_CONFIG}")
 
 
-def collect_docs_recursive(owner: str, repo: str, path: str, repo_target_root: Path, branch: str):
-    items = list_dir(owner, repo, path, branch)
-    if not items:
-        return False
+def collect_repo_files(owner: str, repo: str, repo_target_root: Path, branch: str, previous_files):
+    tree = list_repo_tree(owner, repo, branch)
+    docs_md_found = False
+    collected_count = 0
+    downloaded_count = 0
+    skipped_count = 0
+    current_files = {}
 
-    found = False
+    for item in tree:
+        if item.get("type") != "blob":
+            continue
 
-    for item in items:
-        item_type = item.get("type")
-        item_path = item.get("path")
-        item_name = item.get("name")
-        suffix = Path(item_name).suffix.lower()
+        item_path = Path(item.get("path", ""))
+        if not item_path or not _should_collect_repo_file(item_path):
+            continue
 
-        if item_type == "dir":
-            if collect_docs_recursive(owner, repo, item_path, repo_target_root, branch):
-                found = True
+        item_sha = item.get("sha", "")
+        rel_path = item_path.as_posix()
+        target = repo_target_root / item_path
+        current_files[rel_path] = item_sha
 
-        elif item_type == "file" and suffix in ALL_EXTENSIONS:
-            rel_under_docs = Path(item_path).relative_to("docs")
-            target = repo_target_root / rel_under_docs
-            target.parent.mkdir(parents=True, exist_ok=True)
+        if _is_under_docs(item_path) and item_path.suffix.lower() in TEXT_EXTENSIONS:
+            docs_md_found = True
 
-            if suffix in TEXT_EXTENSIONS:
-                raw = raw_download(item["download_url"]).decode("utf-8", errors="replace")
-                raw = normalize_markdown_paths(raw)
-                target.write_text(raw, encoding="utf-8")
-                print(f"[MD] {repo}/{item_path} -> {target}")
-            else:
-                save_binary(item["download_url"], target)
-                print(f"[ASSET] {repo}/{item_path} -> {target}")
+        if target.exists() and previous_files.get(rel_path) == item_sha:
+            skipped_count += 1
+            collected_count += 1
+            continue
 
-            found = True
+        target.parent.mkdir(parents=True, exist_ok=True)
+        download_url = (
+            f"https://raw.githubusercontent.com/{owner}/{repo}/{quote(branch, safe='')}/"
+            f"{quote(rel_path, safe='/')}"
+        )
 
-    return found
+        if item_path.suffix.lower() in TEXT_EXTENSIONS:
+            raw = raw_download(download_url).decode("utf-8", errors="replace")
+            raw = normalize_markdown_paths(raw)
+            target.write_text(raw, encoding="utf-8")
+            print(f"[MD] {repo}/{item_path} -> {target}")
+        else:
+            save_binary(download_url, target)
+            print(f"[ASSET] {repo}/{item_path} -> {target}")
+
+        downloaded_count += 1
+        collected_count += 1
+
+    prune_repo_target(repo_target_root, set(previous_files), set(current_files))
+    return {
+        "docs_found": docs_md_found,
+        "collected_count": collected_count,
+        "downloaded_count": downloaded_count,
+        "skipped_count": skipped_count,
+        "files": current_files,
+    }
 
 
 def build_legacy_collected_index(collected_repos):
@@ -348,7 +479,10 @@ def build_branch_index(branch: str, collected_repos):
 
     for repo_name in sorted(collected_repos):
         lines.append(f"## {repo_name}")
-        repo_dir = branch_root / repo_name
+        repo_dir = _repo_docs_dir(branch_root / repo_name)
+        if not repo_dir.exists():
+            lines.append("")
+            continue
 
         for md_file in sorted(repo_dir.rglob("*.md")):
             rel = md_file.relative_to(branch_root)
@@ -391,13 +525,14 @@ def build_collected_index(collected_by_branch):
 
 
 def main():
-    if TARGET_DIR.exists():
-        shutil.rmtree(TARGET_DIR)
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    cache = load_cache()
+    repos_cache = cache["repos"]
 
     repos = list_org_repos(ORG)
     collected_by_branch = {branch: [] for branch in BRANCHES}
+    active_repo_keys = set()
 
     for branch in BRANCHES:
         for repo in repos:
@@ -407,17 +542,28 @@ def main():
                 print(f"[SKIP] {repo_name} archived or disabled")
                 continue
 
-            print(f"[CHECK] {repo_name}@{branch}/docs")
+            print(f"[CHECK] {repo_name}@{branch}")
             repo_target = TARGET_DIR / branch / repo_name
+            cache_key = repo_cache_key(branch, repo_name)
+            active_repo_keys.add(cache_key)
+            previous_files = repos_cache.get(cache_key, {}).get("files", {})
 
             try:
-                found = collect_docs_recursive(ORG, repo_name, "docs", repo_target, branch)
-                if found:
+                result = collect_repo_files(ORG, repo_name, repo_target, branch, previous_files)
+                print(
+                    f"[COLLECTED] {repo_name}@{branch}: "
+                    f"{result['collected_count']} files "
+                    f"(downloaded={result['downloaded_count']}, skipped={result['skipped_count']})"
+                )
+                repos_cache[cache_key] = {"files": result["files"]}
+                if result["docs_found"]:
                     collected_by_branch[branch].append(repo_name)
             except Exception as e:
                 print(f"[ERROR] {repo_name}@{branch}: {e}")
                 continue
 
+    prune_stale_repo_cache(cache, active_repo_keys)
+    save_cache(cache)
     build_collected_index(collected_by_branch)
     remove_category_indexes()
     build_doc_index(collected_by_branch)
